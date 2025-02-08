@@ -43,7 +43,7 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
     try:
         print(f"Received token: {token}")  # Debugging
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        print(f"Decoded payload: {payload}")  # Debugging
+        print(f"Decoded payload: {payload}")  
         
         username: str = payload.get("sub")
         if username is None:
@@ -52,7 +52,6 @@ async def get_current_user(token: str = Depends(oauth2_scheme), db: Session = De
         user = db.query(User).filter(User.username == username).first()
         if user is None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
-        
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")

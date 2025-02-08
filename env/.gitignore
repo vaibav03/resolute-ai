@@ -82,6 +82,10 @@ ENV/
 env.bak/
 venv.bak/
 
+Include/
+Lib/
+Scripts/
+
 # macOS
 .DS_Store
 .AppleDouble

@@ -17,7 +17,6 @@ from datetime import timedelta
 print("🔹 Creating tables in the database...")
 Base.metadata.create_all(bind=engine)
 print("✅ Tables created successfully!")
-
 load_dotenv()
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 ACCESS_TOKEN_EXPIRE_MINUTES=300
@@ -46,7 +45,7 @@ def scrape_metadata(url):
         return {"url": url, "error": str(e)}
 
 @celery_app.task
-def scrape_urls_task(urls):
+def scrape_urls_task(urls, user_id):
     print("Celery task started")
     
     results = []
@@ -62,7 +61,7 @@ def scrape_urls_task(urls):
     for result in results:
         if "error" not in result:
             try:
-                metadata_obj = Metadata(**result)
+                metadata_obj = Metadata(**result, user_id=user_id)  # Add user_id
                 print(f"Inserting into DB: {metadata_obj}")
                 db.add(metadata_obj)
                 db.commit()
@@ -99,12 +98,13 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 @app.post("/upload")
 async def upload_csv(file: UploadFile = File(...), db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    print("Uploading")
     df = pd.read_csv(file.file)
     if "url" not in df.columns:
         raise HTTPException(status_code=400, detail="CSV must contain 'url' column")
     urls = df["url"].dropna().tolist()
     print(f"Scraping URLs: {urls}")  
-    task = scrape_urls_task.delay(urls)
+    task = scrape_urls_task.delay(urls, current_user.user_id)
     print(f"Task queued with ID: {task.id}") 
     return {"task_id": task.id}
 
@@ -122,5 +122,5 @@ def get_results(
     current_user: User = Depends(get_current_user),  
 ):
     
-    results = db.query(Metadata).all()
+    results = db.query(Metadata).filter(Metadata.user_id == current_user.user_id).all()
     return results
